@@ -8,7 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from file_load import load_future, load_Daily
 
-root_path = './StockFutureData'
+root_path = 'StockFutureData'
 mypath = root_path + '/IC'
 prices = load_future(mypath)
 prices = prices[['最新','持仓','增仓','成交额','成交量']]
@@ -33,9 +33,8 @@ Y = y_scale.fit_transform(y.reshape(-1,1))
 
 # splitting train and test
 X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.33)
-print(X_train.shape())
-X_train = X_train.reshape((-1,1,4))
-X_test = X_test.reshape((-1,1,4))
+X_train = X_train.reshape((-1,1,5))
+X_test = X_test.reshape((-1,1,5))
 
 # creating model using Keras
 # tf.reset_default_graph()
@@ -44,7 +43,7 @@ model_name = 'future_price_GRU'
 model = Sequential()
 model.add(GRU(units=512,
               return_sequences=True,
-              input_shape=(1, 4)))
+              input_shape=(1, 5)))
 model.add(Dropout(0.2))
 model.add(GRU(units=256))
 model.add(Dropout(0.2))
