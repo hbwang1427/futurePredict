@@ -8,22 +8,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 from file_load import load_future, load_Daily
 import os
-import argparse
-
-parser = argparse.ArgumentParser()
-parser.add_argument('-m', '--market', help='market name (IC, IF, IH).')
-parser.add_argument('-d', '--testMarket', help='test market file name.')
-
-args = parser.parse_args()
 
 root_path = 'StockFutureData'
-market = args.market
-model_name = 'future_price_GRU'
-if market:
-    model_name = model_name + '_'+market
+market = 'IC'
+dailyMarket = ''
+model_name = 'future_price_GRU'+'_'+market+dailyMarket
 model_name_h5= model_name+'.h5'
 
-#load tick data
 mypath = os.path.join(root_path, market)
 prices = load_future(mypath)
 prices = prices[['最新','持仓','增仓','成交额','成交量']]
@@ -43,28 +34,36 @@ x, y = prices.values, label.values
 x_scale = MinMaxScaler()
 y_scale = MinMaxScaler()
 
-X_train = x_scale.fit_transform(x)
-y_train = y_scale.fit_transform(y.reshape(-1,1))
+X = x_scale.fit_transform(x)
+Y = y_scale.fit_transform(y.reshape(-1,1))
 
-# load test
-test_prices = load_future(args.testMarket)
-test_prices = test_prices[['最新','持仓','增仓','成交额','成交量']]
-# preparing label data
-test_prices_shift = test_prices.shift(-1)
-test_label = test_prices_shift['最新']
-
-# adjusting the shape of both
-test_prices.drop(test_prices.index[len(test_prices)-1], axis=0, inplace=True)
-test_label.drop(test_label.index[len(test_label)-1], axis=0, inplace=True)
-# conversion to numpy array
-xtest, ytest = test_prices.values, test_label.values
-X_test = x_scale.fit_transform(xtest)
-y_test = y_scale.fit_transform(ytest.reshape(-1,1))
-
+# splitting train and test
+X_train, X_test, y_train, y_test = train_test_split(X, Y, test_size=0.01)
 X_train = X_train.reshape((-1,1,5))
 X_test = X_test.reshape((-1,1,5))
 
-model = load_model(model_name_h5)
+if not os.path.exists(model_name_h5):
+    # creating model using Keras
+    # tf.reset_default_graph()
+
+    model = Sequential()
+    model.add(GRU(units=512,
+                  return_sequences=True,
+                  input_shape=(1, 5)))
+    model.add(Dropout(0.2))
+    model.add(GRU(units=256))
+    model.add(Dropout(0.2))
+    model.add(Dense(1, activation='sigmoid'))
+    model.compile(loss='mse', optimizer='adam')
+
+    # model = load_model("{}.h5".format(model_name))
+    # print("MODEL-LOADED")
+
+    model.fit(X_train,y_train,batch_size=250, epochs=500, validation_split=0.1, verbose=1)
+    model.save("{}.h5".format(model_name))
+    print('MODEL-SAVED')
+else:
+    model = load_model(model_name_h5)
 
 score = model.evaluate(X_test, y_test)
 print('Score: {}'.format(score))
