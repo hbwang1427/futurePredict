@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
-from file_load import load_future, load_Daily
+from file_load import load_future, load_Daily, load_future_2021
 import os
 import argparse
 
@@ -47,13 +47,11 @@ X_train = x_scale.fit_transform(x)
 y_train = y_scale.fit_transform(y.reshape(-1,1))
 
 # load test
-test_prices = load_future(args.testMarket)
-test_prices = test_prices[['最新','持仓','增仓','成交额','成交量']]
-# preparing label data
+test_prices = load_future_2021(args.testMarket)
+openInterest_shift = test_prices['openInterest'].shift(-1)
+test_prices = [test_prices[['lastPrice']], test_prices[['openInterest']], test_prices[['openInterest']]-openInterest_shift, test_prices[['turnOver']], test_prices[['totalVol']]].toArray()
 test_prices_shift = test_prices.shift(-1)
-test_label = test_prices_shift['最新']
-
-# adjusting the shape of both
+test_label = test_prices_shift['lastPrice']
 test_prices.drop(test_prices.index[len(test_prices)-1], axis=0, inplace=True)
 test_label.drop(test_label.index[len(test_label)-1], axis=0, inplace=True)
 # conversion to numpy array
