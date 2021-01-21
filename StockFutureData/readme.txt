@@ -8,3 +8,16 @@ IH开头的是上证50指数期货合约
 IC、IF、IH   目录下每个文件含一个交易日的tick数据。 文件名格式为 [合约代码]_年月日.csv
 FutureDaily 目录下包含股指期货合约的日线信息， 文 件名格式 [IC|IF|IH]年月.csv
 StockDaily   目录下包含股票（含指数）的日线信息， 文件名格式 股票名.csv。 其中IC为sh000905.csv， IF为sh000300.csv,  IH为sh000016.csv， 上证综合指数为sh000001.csv
+
+3。 Test数据格式
+
+格式和训练的那个不一样， 下面是映射关系：
+lastPrice 最新
+openInterest 持仓
+turnOver 成交额
+totalVol 成交量
+其中增仓需要自己计算一下： 增仓 = 当前tick的持仓 - 上一个tick的持仓
+
+4。Usage
+
+python3 futures_predict.py --market IC --testMarket IC2021
