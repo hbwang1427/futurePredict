@@ -57,7 +57,8 @@ test_label.drop(test_label.index[len(test_label)-1], axis=0, inplace=True)
 # conversion to numpy array
 xtest, ytest = test_prices.values, test_label.values
 X_test = x_scale.transform(xtest)
-y_test = y_scale.transform(ytest.reshape(-1,1))
+y_test = ytest.reshape(-1,1)
+#y_test = y_scale.transform(ytest.reshape(-1,1))
 
 X_train = X_train.reshape((-1,1,5))
 X_test = X_test.reshape((-1,1,5))
@@ -68,7 +69,7 @@ score = model.evaluate(X_test, y_test)
 print('Score: {}'.format(score))
 yhat = model.predict(X_test)
 yhat = y_scale.inverse_transform(yhat)
-y_test = y_scale.inverse_transform(y_test)
+#y_test = y_scale.inverse_transform(y_test)
 plt.plot(yhat, label='Predicted')
 plt.plot(y_test, label='Ground Truth')
 plt.legend()
