@@ -25,8 +25,7 @@ model_name_h5= model_name+'.h5'
 
 #load tick data
 mypath = os.path.join(root_path, market)
-prices = load_future(mypath)
-prices = prices[['最新','持仓','增仓','成交额','成交量']]
+prices = load_future(mypath, 20)
 
 # preparing label data
 label = prices['最新'].shift(-1)
