@@ -4,12 +4,11 @@ import os
 from os import listdir
 from os.path import isfile, join
 import numpy as np
-import seaborn as sns
 import pandas as pd
 import matplotlib.pyplot as plt
 
 #read IC
-def load_future(mypath, n_sample):
+def load_future(mypath, nSample, fTicks):
     #mypath = root_path + '/IC'
     onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f)) and join(mypath,f).endswith('.csv')]
     Data = []
@@ -21,11 +20,20 @@ def load_future(mypath, n_sample):
         #print(prices)
         #prices[['最新']] = prices[['最新']] - prices[['最新']].shift(1)
         prices = prices[['最新','持仓','成交额','成交量','买一价','买二价','买三价','买四价','买五价','卖一价','卖二价','卖三价','卖四价','卖五价']]
-        prices = prices[::n_sample] #take every n_sample+1 ticks
-        for c in list(prices): #take incrementals
-            prices[c] = prices[c] - prices[c].shift(1)
+        prices = prices[::nSample] #take every n_sample+1 ticks
+        #for c in list(prices): #take incrementals
+        prices['最新'] = prices['最新'] - prices['最新'].shift(1)
         if len(prices) > 0:
             prices.drop(prices.index[0], axis=0, inplace=True)
+        
+        # preparing label data
+        _shift = int(round(fTicks/nSample))
+        label = prices['最新'].shift(-_shift)
+ 
+        # adjusting the shape of both
+        prices.drop(prices.index[len(prices)-_shift], axis=0, inplace=True)
+        label.drop(label.index[len(label)-_shift], axis=0, inplace=True)
+        print(prices.loc[prices['最新'] == 'nan'])
         Data.append(prices)
     Data = pd.concat(Data, axis=0, ignore_index=True)
     #Data = Data.sort_values('时间')
@@ -57,9 +65,20 @@ def load_future_2021(mypath):
     #Data = Data.sort_values('时间')
     return Data
 
+def df_autocorr(df, lag=1, axis=0):
+    """Compute full-sample column-wise autocorrelation for a DataFrame."""
+    return df.apply(lambda col: col.autocorr(lag), axis=axis)
+
 if __name__ == '__main__':
-    data = load_future('StockFutureData/IC',20)
+
+    data = load_future('StockFutureData/IC',1,20)
     c = data.corr(method='spearman')
     c.to_csv('cor.csv',index=True)
     fig, ax = plt.subplots()
     ax.matshow(c, cmap=plt.cm.Blues)
+
+    ac_series = []
+    for lag in range(1, 20):
+        ac = df_autocorr(data, lag)
+        ac_series.append(ac)
+    plt.plot(ac_series)

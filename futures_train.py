@@ -2,6 +2,7 @@ import pandas as pd
 from keras.layers.core import Dense, Dropout
 from keras.layers.recurrent import GRU
 from keras.models import Sequential, load_model
+from keras.callbacks import TensorBoard
 import matplotlib.pyplot as plt
 import numpy as np
 from sklearn.model_selection import train_test_split
@@ -31,15 +32,7 @@ model_name_h5= model_name+'.h5'
 os.environ["CUDA_VISIBLE_DEVICES"]=args.gpuID # first gpu
 
 mypath = os.path.join(root_path, market)
-prices = load_future(mypath,nSample)
-
-# preparing label data
-_shift = int(round(fTicks/nSample))
-label = prices['最新'].shift(-_shift)
-
-# adjusting the shape of both
-prices.drop(prices.index[len(prices)-_shift], axis=0, inplace=True)
-label.drop(label.index[len(label)-_shift], axis=0, inplace=True)
+prices = load_future(mypath,nSample,fTicks)
 
 # conversion to numpy array
 x, y = prices.values, label.values
@@ -63,8 +56,8 @@ if not os.path.exists(model_name_h5) or args.retrain is 'Yes':
     model = Sequential()
     model.add(GRU(units=512,
                   return_sequences=True,
-                  input_shape=(1, 5)))
-    model.add(Dropout(0.2))
+                  input_shape=(1, 14)))
+    #model.add(Dropout(0.2))
     model.add(GRU(units=256))
     model.add(Dropout(0.2))
     model.add(Dense(1, activation='sigmoid'))
@@ -72,8 +65,9 @@ if not os.path.exists(model_name_h5) or args.retrain is 'Yes':
 
     # model = load_model("{}.h5".format(model_name))
     # print("MODEL-LOADED")
+    tbCallBack = TensorBoard(log_dir=model_name,histogram_freq=0,write_graph=True,write_images=True,update_freq="epoch")
 
-    model.fit(X_train,y_train,batch_size=250, epochs=500, validation_split=0.1, verbose=1)
+    model.fit(X_train,y_train,batch_size=250, epochs=500, validation_split=0.1, verbose=1, callbacks=[tbCallBack])
     model.save("{}.h5".format(model_name))
     print('MODEL-SAVED')
 else:
