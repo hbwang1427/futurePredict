@@ -3,8 +3,8 @@
 ## Methodology
 
 mainly time series analysis
-1. RNN
-2. Transformer https://towardsdatascience.com/stock-predictions-with-state-of-the-art-transformer-and-time-embeddings-3a4485237de6 
+1. autocorrelation / partial autocorrelation analysis to select time window
+2. RNN/LSTM/Transformer modeling
 
 ## Data
 1. 股指期货合约命名含义
