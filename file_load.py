@@ -8,47 +8,59 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 #read IC
-def load_future(mypath, nSample, fTicks):
+def load_future(mypath, startTime, nSample, fTicks):
     #mypath = root_path + '/IC'
     onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f)) and join(mypath,f).endswith('.csv')]
     Data = []
     labels = []
     for f in sorted(onlyfiles):
-        prices = pd.read_csv(os.path.join(mypath,f),index_col=None, header=0)
-        print(os.path.join(mypath,f))
-        # preparing input features
-        #prices = prices[['最新','持仓','增仓','成交额','成交量','开仓','平仓','买一价','买二价','买三价','买四价','买五价','卖一价','卖二价','卖三价','卖四价','卖五价','买一量','买二量','买三量','买四量','买五量','卖一量','卖二量','卖三量','卖四量','卖五量']]
-        #print(prices)
-        #prices[['最新']] = prices[['最新']] - prices[['最新']].shift(1)
-        prices = prices[['最新','持仓','成交额','成交量','买一价','卖一价']]
-        prices = prices[::nSample] #take every n_sample+1 ticks
-        for c in list(prices): #take incrementals
-            prices[c] = prices[c] - prices[c].shift(1)
-        if len(prices) > 0:
-            prices.drop(prices.index[0], axis=0, inplace=True)
+        date = int(f[f.find('_')+1:f.find('.csv')])
+        if date > startTime:
+            try:
+                prices = pd.read_csv(os.path.join(mypath,f),index_col=None, header=0)
+                # preparing input features
+                #prices = prices[['最新','持仓','增仓','成交额','成交量','开仓','平仓','买一价','买二价','买三价','买四价','买五价','卖一价','卖二价','卖三价','卖四价','卖五价','买一量','买二量','买三量','买四量','买五量','卖一量','卖二量','卖三量','卖四量','卖五量']]
+                #print(prices)
+                #prices[['最新']] = prices[['最新']] - prices[['最新']].shift(1)
+                prices = prices[['最新','持仓','成交额','成交量','买一价','卖一价']]
+                prices = prices[::nSample] #take every n_sample ticks
+                for c in list(prices): #take incrementals
+                    prices[c] = prices[c] - prices[c].shift(1)
+                if len(prices) > 0:
+                    prices.drop(prices.index[0], axis=0, inplace=True)
 
-        prices.dropna()
-        
-        # preparing label data
-        _shift = int(round(fTicks/nSample))
-        label = prices['最新'].shift(-_shift)
+                prices.dropna()
 
-        nonlabel = label[label.isnull()].index
+                # preparing label data
+                _shift = int(round(fTicks/nSample))
+                label = prices['最新'].shift(-_shift)
 
-        prices = prices.drop(nonlabel)
-        label = label.drop(nonlabel)
-        print(prices.shape,label.shape)
- 
-        # adjusting the shape of both
-        #prices.drop(prices.index[len(prices)-_shift], axis=0, inplace=True)
-        #label.drop(label.index[len(label)-_shift], axis=0, inplace=True)
-        print(label)
-        Data.append(prices)
-        labels.append(label)
-    Data = pd.concat(Data, axis=0, ignore_index=True)
-    labels = pd.concat(labels, axis=0, ignore_index=True)
+                nonlabel = label[label.isnull()].index
+
+                prices = prices.drop(nonlabel).values
+                label = label.drop(nonlabel)
+
+                Data.append(prices)
+                labels.append(label)
+    
+            except ValueError:
+                print("file reading error")
+    #Data = pd.concat(Data, axis=0, ignore_index=True)
+    #labels = pd.concat(labels, axis=0, ignore_index=True)
     #Data = Data.sort_values('时间')
+    
     return Data,labels
+
+def series_to_supervised(prices,labels,stride,step):
+    ##create sequences for input into recurrent models
+    X = []
+    Y = []
+    for i in range(1,len(prices)-step-stride,stride):
+        p = prices[i:i+step,:]
+        X.append(p)
+        Y.append(labels[i])
+    
+    return np.array(X),np.array(Y)
 
 def load_Daily(mypath):
     #mypath = root_path + '/IC'
@@ -83,8 +95,10 @@ def df_autocorr(df, lag=1, axis=0):
 if __name__ == '__main__':
     skips = [1, 5, 10]
     nsample = 20
+    stride = 5
+    sequence_length = 100
     for nskip in skips:
-        data = load_future('StockFutureData/IC',nskip,nsample)
+        data = load_future('StockFutureData/IC',20201020,nskip,nsample)
         data.to_csv(r'IC_'+str(nskip)+'_'+str(nsample)+'.csv',index=True)
     c = data.corr(method='spearman')
     c.to_csv('cor.csv',index=True)

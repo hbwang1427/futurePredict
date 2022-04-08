@@ -1,146 +1,164 @@
+"""
+Title: Timeseries classification with a Transformer model
+Author: [Theodoros Ntakouris](https://github.com/ntakouris)
+Date created: 2021/06/25
+Last modified: 2021/08/05
+Description: This notebook demonstrates how to do timeseries classification using a Transformer model.
+"""
+
+
+"""
+## Introduction
+This is the Transformer architecture from
+[Attention Is All You Need](https://arxiv.org/abs/1706.03762),
+applied to timeseries instead of natural language.
+This example requires TensorFlow 2.4 or higher.
+## Load the dataset
+We are going to use the same dataset and preprocessing as the
+[TimeSeries Classification from Scratch](https://keras.io/examples/timeseries/timeseries_classification_from_scratch)
+example.
+"""
+
 import numpy as np
-import matplotlib.pyplot as plt
-import pandas as pd
-import os 
-from sklearn.preprocessing import MinMaxScaler
-from collections import deque
-import numpy as np
-import random
-
-df = pd.read_csv('GE.csv',delimiter=',',usecols=['Date','Open','High','Low','Close', 'Volume'])
-# Sort DataFrame by date
-df = df.sort_values('Date')
-
-# Double check the result
-df.head()
-
-plt.figure(figsize = (18,9))
-plt.plot(range(df.shape[0]),(df['Low']+df['High'])/2.0)
-plt.xticks(range(0,df.shape[0],500),df['Date'].loc[::500],rotation=45)
-plt.xlabel('Date',fontsize=18)
-plt.ylabel('Mid Price',fontsize=18)
-plt.show()
-
-df['mid'] = (df['Low']+df['High'])/2.0
-SEQ_LEN = 60  # how long of a preceeding sequence to collect for RNN
-FUTURE_PERIOD_PREDICT = 1  # how far into the future are we trying to predict?
-RATIO_TO_PREDICT = "mid"
-
-def classify(current, future):
-    if float(future) > float(current):
-        return 1
-    else:
-        return 0
-
-df['future'] = df[RATIO_TO_PREDICT].shift(-FUTURE_PERIOD_PREDICT)
-df['target'] = list(map(classify, df[RATIO_TO_PREDICT], df['future']))
-df.head()
-df.tail()
-
-times = sorted(df.index.values)  # get the times
-last_10pct = sorted(df.index.values)[-int(0.1*len(times))]  # get the last 10% of the times
-last_20pct = sorted(df.index.values)[-int(0.2*len(times))]  # get the last 20% of the times
-
-test_df = df[(df.index >= last_10pct)]
-validation_df = df[(df.index >= last_20pct) & (df.index < last_10pct)]  
-train_df = df[(df.index < last_20pct)]  # now the train_df is all the data up to the last 20%
-
-train_df.drop(columns=["Date", "future", 'Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
-validation_df.drop(columns=["Date", "future", 'Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)
-test_df.drop(columns=["Date", "future", 'Open', 'High', 'Low', 'Close', 'Volume'], inplace=True)# don't need this anymore.
-train_df.head()
-
-train_data = train_df[RATIO_TO_PREDICT].to_numpy()
-valid_data = validation_df[RATIO_TO_PREDICT].to_numpy()
-test_data = test_df[RATIO_TO_PREDICT].to_numpy()
-
-train_data = train_data.reshape(-1,1)
-valid_data = valid_data.reshape(-1,1)
-test_data = test_data.reshape(-1,1)
-
-scaler = MinMaxScaler()
-# Train the Scaler with training data and smooth data
-smoothing_window_size = 2500
-for di in range(0,10000,smoothing_window_size):
-    scaler.fit(train_data[di:di+smoothing_window_size,:])
-    train_data[di:di+smoothing_window_size,:] = scaler.transform(train_data[di:di+smoothing_window_size,:])
-
-if len(train_data[di+smoothing_window_size:,:]) > 0:
-  # You normalize the last bit of remaining data
-  scaler.fit(train_data[di+smoothing_window_size:,:])
-  train_data[di+smoothing_window_size:,:] = scaler.transform(train_data[di+smoothing_window_size:,:])
-
-# Reshape both train and test data
-train_data = train_data.reshape(-1)
-
-# Normalize test data and validation data
-valid_data = scaler.transform(valid_data).reshape(-1)
-test_data = scaler.transform(test_data).reshape(-1)
-
-# Now perform exponential moving average smoothing
-# So the data will have a smoother curve than the original ragged data
-EMA = 0.0
-gamma = 0.1
-for ti in range(len(train_data)):
-    EMA = gamma*train_data[ti] + (1-gamma)*EMA
-    train_data[ti] = EMA
-
-# Used for visualization and test purposes
-all_mid_data = np.concatenate([train_data,valid_data, test_data],axis=0)
-
-X_train = []
-y_train = []
-for i in range(SEQ_LEN, len(train_data)):
-    X_train.append(train_data[i-SEQ_LEN:i])
-    y_train.append(train_data[i + (FUTURE_PERIOD_PREDICT-1)])
-X_train, y_train = np.array(X_train), np.array(y_train)
-
-X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
-
-X_valid = []
-y_valid = []
-for i in range(SEQ_LEN, len(valid_data)):
-    X_valid.append(valid_data[i-SEQ_LEN:i])
-    y_valid.append(valid_data[i+(FUTURE_PERIOD_PREDICT-1)])
-X_valid, y_valid = np.array(X_valid), np.array(y_valid)
-
-X_valid = np.reshape(X_valid, (X_valid.shape[0], X_valid.shape[1], 1))
-
-X_test = []
-y_test = []
-for i in range(SEQ_LEN, len(test_data)):
-    X_test.append(test_data[i-SEQ_LEN:i])
-    y_test.append(test_data[i+(FUTURE_PERIOD_PREDICT-1)])
-    
-X_test, y_test = np.array(X_test), np.array(y_test)
-X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-
-y_train.shape
-y_valid.shape
-
-X_train_2 = []
-y_train_2 = []
-for i in range(SEQ_LEN, len(train_data)):
-    X_train_2.append(train_data[i-SEQ_LEN:i])
-    y_train_2.append(train_data[i + (FUTURE_PERIOD_PREDICT-1)])
-X_train_2, y_train_2 = np.array(X_train_2), np.array(y_train_2)
-
-X_train_2 = np.reshape(X_train_2, (X_train_2.shape[0], X_train_2.shape[1], 1))
-
-## show predictions
-plt.figure(figsize=(15, 5))
-
-plt.plot(np.arange(y_train_2.shape[0]), y_train_2, color='blue', label='train target')
-
-plt.plot(np.arange(y_train_2.shape[0], y_train_2.shape[0]+y_valid.shape[0]), y_valid,
-         color='gray', label='valid target')
-
-plt.plot(np.arange(y_train_2.shape[0]+y_valid.shape[0],
-                   y_train_2.shape[0]+y_valid.shape[0]+y_test.shape[0]),
-         y_test, color='black', label='test target')
 
 
-plt.title('Séparation des données')
-plt.xlabel('time [days]')
-plt.ylabel('normalized price')
-plt.legend(loc='best');
+def readucr(filename):
+    data = np.loadtxt(filename, delimiter="\t")
+    y = data[:, 0]
+    x = data[:, 1:]
+    return x, y.astype(int)
+
+
+root_url = "UCRArchive_2018/FordA/"
+
+x_train, y_train = readucr(root_url + "FordA_TRAIN.tsv")
+x_test, y_test = readucr(root_url + "FordA_TEST.tsv")
+
+x_train = x_train.reshape((x_train.shape[0], x_train.shape[1], 1))
+x_test = x_test.reshape((x_test.shape[0], x_test.shape[1], 1))
+
+n_classes = len(np.unique(y_train))
+
+idx = np.random.permutation(len(x_train))
+x_train = x_train[idx]
+y_train = y_train[idx]
+
+y_train[y_train == -1] = 0
+y_test[y_test == -1] = 0
+
+"""
+## Build the model
+Our model processes a tensor of shape `(batch size, sequence length, features)`,
+where `sequence length` is the number of time steps and `features` is each input
+timeseries.
+You can replace your classification RNN layers with this one: the
+inputs are fully compatible!
+"""
+
+from tensorflow import keras
+from tensorflow.keras import layers
+
+"""
+We include residual connections, layer normalization, and dropout.
+The resulting layer can be stacked multiple times.
+The projection layers are implemented through `keras.layers.Conv1D`.
+"""
+
+
+def transformer_encoder(inputs, head_size, num_heads, ff_dim, dropout=0):
+    # Attention and Normalization
+    x = layers.MultiHeadAttention(
+        key_dim=head_size, num_heads=num_heads, dropout=dropout
+    )(inputs, inputs)
+    x = layers.Dropout(dropout)(x)
+    x = layers.LayerNormalization(epsilon=1e-6)(x)
+    res = x + inputs
+
+    # Feed Forward Part
+    x = layers.Conv1D(filters=ff_dim, kernel_size=1, activation="relu")(res)
+    x = layers.Dropout(dropout)(x)
+    x = layers.Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
+    x = layers.LayerNormalization(epsilon=1e-6)(x)
+    return x + res
+
+
+"""
+The main part of our model is now complete. We can stack multiple of those
+`transformer_encoder` blocks and we can also proceed to add the final
+Multi-Layer Perceptron classification head. Apart from a stack of `Dense`
+layers, we need to reduce the output tensor of the `TransformerEncoder` part of
+our model down to a vector of features for each data point in the current
+batch. A common way to achieve this is to use a pooling layer. For
+this example, a `GlobalAveragePooling1D` layer is sufficient.
+"""
+
+
+def build_model(
+    input_shape,
+    head_size,
+    num_heads,
+    ff_dim,
+    num_transformer_blocks,
+    mlp_units,
+    dropout=0,
+    mlp_dropout=0,
+):
+    inputs = keras.Input(shape=input_shape)
+    x = inputs
+    for _ in range(num_transformer_blocks):
+        x = transformer_encoder(x, head_size, num_heads, ff_dim, dropout)
+
+    x = layers.GlobalAveragePooling1D(data_format="channels_first")(x)
+    for dim in mlp_units:
+        x = layers.Dense(dim, activation="relu")(x)
+        x = layers.Dropout(mlp_dropout)(x)
+    outputs = layers.Dense(n_classes, activation="softmax")(x)
+    return keras.Model(inputs, outputs)
+
+
+"""
+## Train and evaluate
+"""
+
+input_shape = x_train.shape[1:]
+
+model = build_model(
+    input_shape,
+    head_size=256,
+    num_heads=4,
+    ff_dim=4,
+    num_transformer_blocks=4,
+    mlp_units=[128],
+    mlp_dropout=0.4,
+    dropout=0.25,
+)
+
+model.compile(
+    loss="sparse_categorical_crossentropy",
+    optimizer=keras.optimizers.Adam(learning_rate=1e-4),
+    metrics=["sparse_categorical_accuracy"],
+)
+model.summary()
+
+callbacks = [keras.callbacks.EarlyStopping(patience=10, restore_best_weights=True)]
+
+model.fit(
+    x_train,
+    y_train,
+    validation_split=0.2,
+    epochs=200,
+    batch_size=64,
+    callbacks=callbacks,
+)
+
+model.evaluate(x_test, y_test, verbose=1)
+
+"""
+## Conclusions
+In about 110-120 epochs (25s each on Colab), the model reaches a training
+accuracy of ~0.95, validation accuracy of ~84 and a testing
+accuracy of ~85, without hyperparameter tuning. And that is for a model
+with less than 100k parameters. Of course, parameter count and accuracy could be
+improved by a hyperparameter search and a more sophisticated learning rate
+schedule, or a different optimizer.
+"""

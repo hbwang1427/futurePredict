@@ -1,74 +1,71 @@
-import pandas as pd
-import numpy as np
-
-from keras.layers.core import Dense, Dropout
-from keras.layers.recurrent import GRU
-from keras.models import Sequential
-from keras.callbacks import TensorBoard
-#from Informer2020.exp.exp_informer import Exp_Informer
+import os
+import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras import Sequential
+from tensorflow.keras.layers import Dropout, Dense, LSTM, GRU
+import pydot
+import pydotplus
+from pydotplus import graphviz
 
 class NNmodel:
 
-    def __init__(self,input_shape):
+    def __init__(self,timesteps,feature_shape):
         print("cnn model is called")
-        self.input_shape = input_shape
+        self.timesteps = timesteps
+        self.feature_shape = feature_shape
 
-    def RNN(self):
+    def GRU(self):
         model = Sequential()
-        model.add(GRU(units=512, return_sequences=True, input_shape=(1, self.input_shape)))
-        model.add(Dropout(0.2))
-        model.add(GRU(units=256))
-        model.add(Dropout(0.2))
+        model.add(GRU(units=64, return_sequences=True, input_shape=(self.timesteps,self.feature_shape)))
+        model.add(GRU(units=64,return_sequences=True))
+        model.add(GRU(units=32
+        ,return_sequences=True))
+        model.add(GRU(units=32, dropout=0.2))
         model.add(Dense(1, activation='sigmoid',kernel_initializer='random_normal', bias_initializer='zeros'))
-        model.compile(loss='mse', optimizer='adam')
-
+        model.summary()
+        #tf.keras.utils.plot_model(model, to_file=os.path.join('./model_gru.png'), show_shapes=True, show_layer_names=True)
         return model
     
     def LSTM(self):
         model = Sequential()
-        model.add(LSTM(50, return_sequences=True, input_shape=(1, self.input_shape)))
-        model.add(LSTM(50, return_sequences=False))
-        model.add(Dense(25, activation='sigmoid',kernel_initializer='random_normal',bias_initializer='zeros'))
-        model.add(Dense(1, activation='sigmoid',kernel_initializer='random_normal',bias_initializer='zeros'))
-        model.compile(loss='mse',optimizer='adam')
+        model.add(LSTM(units=64, return_sequences=True, input_shape=(self.timesteps,self.feature_shape)))
+        model.add(LSTM(units=64, return_sequences=True))
+        model.add(LSTM(units=32, return_sequences=True))
+        model.add(LSTM(units=32, dropout=0.2))
+        model.add(Dense(units=1, activation='sigmoid',kernel_initializer='random_normal',bias_initializer='zeros'))
+        model.summary()
+        #tf.keras.utils.plot_model(model, to_file=os.path.join('./model_lstm.png'), show_shapes=True, show_layer_names=True)
         return model
+    
+    def __transformer_encoder__(self, inputs, head_size, num_heads, ff_dim, dropout=0):
+        # Attention and Normalization
+        x = layers.MultiHeadAttention(
+            key_dim=head_size, num_heads=num_heads, dropout=dropout
+        )(inputs, inputs)
+        x = layers.Dropout(dropout)(x)
+        x = layers.LayerNormalization(epsilon=1e-6)(x)
+        res = x + inputs
+    
+        # Feed Forward Part
+        x = layers.Conv1D(filters=ff_dim, kernel_size=1, activation="relu")(res)
+        x = layers.Dropout(dropout)(x)
+        x = layers.Conv1D(filters=inputs.shape[-1], kernel_size=1)(x)
+        x = layers.LayerNormalization(epsilon=1e-6)(x)
+        return x + res
+    
+    def Transformer(self, n_classes, input_shape, head_size, num_heads, ff_dim,
+        num_transformer_blocks, mlp_units, dropout=0, mlp_dropout=0):
+        inputs = keras.Input(shape=input_shape)
+        x = inputs
+        for _ in range(num_transformer_blocks):
+            x = self.__transformer_encoder__(x, head_size, num_heads, ff_dim, dropout)
+    
+        x = layers.GlobalAveragePooling1D(data_format="channels_first")(x)
+        for dim in mlp_units:
+            x = layers.Dense(dim, activation="relu")(x)
+            x = layers.Dropout(mlp_dropout)(x)
+        outputs = layers.Dense(n_classes, activation="softmax")(x)
+        return keras.Model(inputs, outputs)
 
-    def Informer(self):
-        self.model = 'informer'
-        self.seq_len = 96
-        self.label_len = 48
-        self.pred_len = 24
-        self.enc_in = 7
-        self.dec_in = 7
-        self.c_out = 7
-        self.d_model = 512
-        self.n_heads = 8
-        self.e_layers = 3
-        self.d_layers = 2
-        self.d_ff = 1024
-        self.factor = 5
-        self.distil = True
-        self.dropout = 0.05
-        self.attn = 'prob'
-        self.embed = 'timeF' ##
-        self.activation = 'gelu'
-        self.output_attension = True
-        self.num_workers = 0
-        self.train_epochs = 6
-        self.batch_size = 32
-        self.patience = 3
-        self.learning_rate = 0.0001
-        self.des = 'test'
-        self.loss = 'mse'
-        self.lradj = 'type1'
-      
-        setting = '{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_at{}_eb{}_dt{}_{}_{}'.format(self.model, self.data, self.features, 
-                self.seq_len, self.label_len, self.pred_len,
-                self.d_model, self.n_heads, self.e_layers, self.d_layers, self.d_ff, self.attn, self.embed, self.distil, self.des, 1)
-
-        exp = Exp(args)
-        print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
-        exp.train(setting)
-        
-        print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-        exp.test(setting)
+  
