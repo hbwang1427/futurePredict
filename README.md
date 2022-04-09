@@ -2,9 +2,14 @@
 
 ## Methodology
 
-mainly time series analysis
-1. autocorrelation / partial autocorrelation analysis to select time window
-2. RNN/LSTM/Transformer modeling
+1 GRU based model
+2 LSTM based model
+
+## TODO
+
+1. factor selection based on cor
+2. period selection based on autocor
+3. transformer based model
 
 ## Data
 1. 股指期货合约命名含义
