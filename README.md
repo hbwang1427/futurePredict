@@ -17,36 +17,51 @@ This dataset contains historical data for various Chinese stock index futures co
 
 ### Data Naming Conventions for Stock Index Futures Contracts
 IC-prefixed contracts represent China Securities Index 500 Futures contracts.
+
 IF-prefixed contracts represent SSE 300 Index Futures contracts.
+
 IH-prefixed contracts represent Shanghai 50 Index Futures contracts.
 
 ### Data Directory Structure
 Train directory:
+
 Subdirectories named IC, IF, and IH.
+
 Each file within these subdirectories contains tick data for a single trading day.
+
 File naming format: [contract code]_yearmonthday.csv (e.g., IC_20230101.csv).
 
 ### FutureDaily directory:
 Contains daily data for stock index futures contracts.
+
 File naming format: [IC|IF|IH]yearmonth.csv (e.g., IC202301.csv).
 
 ### StockDaily directory:
 Contains daily data for individual stocks (including indices).
+
 File naming format: stock_name.csv (e.g., sh000905.csv).
-Specific mappings:
+
+#### Specific mappings:
 IC corresponds to sh000905.csv.
 IF corresponds to sh000300.csv.
 IH corresponds to sh000016.csv.
-Shanghai Composite Index corresponds to sh000001.csv.
+
+#### Shanghai Composite Index corresponds to sh000001.csv.
+
 Test Data Format
 The format differs from the training data.
 
 ### Mapping between fields:
 lastPrice: Last price
+
 openInterest: Open interest
+
 turnOver: Turnover
+
 totalVol: Total volume
+
 Note: The increase in open interest needs to be calculated manually using the formula:
+
 Increase in open interest = Open interest of current tick - Open interest of previous tick
 
 ## Usage
